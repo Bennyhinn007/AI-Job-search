@@ -44,6 +44,16 @@ schtasks /Create `
     /F
 
 if ($LASTEXITCODE -eq 0) {
+    # Make it laptop-friendly: if the PC was off/asleep at $Time, run as soon as
+    # possible after the next logon instead of skipping the day.
+    try {
+        $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable
+        Set-ScheduledTask -TaskName $TaskName -Settings $settings | Out-Null
+        Write-Host "Enabled 'run after missed start' (StartWhenAvailable)."
+    } catch {
+        Write-Warning "Could not set StartWhenAvailable: $($_.Exception.Message)"
+    }
+
     Write-Host ""
     Write-Host "Scheduled. The digest will be emailed every day at $Time." -ForegroundColor Green
     Write-Host "Test it now with:  schtasks /Run /TN `"$TaskName`""

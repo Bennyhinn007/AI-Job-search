@@ -269,6 +269,11 @@ It runs `run_job_radar.bat`, which `cd`s into the project folder (so `.env`,
 `resume/`, and `database/` resolve correctly), uses the project `.venv` if
 present, and appends output to `logs\job_radar.log`.
 
+**Laptop-friendly:** the setup also enables *StartWhenAvailable*, so if the PC
+was off or asleep at the scheduled time, the task runs as soon as possible after
+you next log in instead of skipping the day. (It does not wake the machine from
+sleep or run while shut down — it catches up on the next logon.)
+
 Useful commands:
 
 ```powershell
