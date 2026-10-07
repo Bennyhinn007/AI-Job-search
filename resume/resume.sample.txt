@@ -1,0 +1,32 @@
+Jane Doe — Software Engineer
+
+SUMMARY
+Full-stack and backend developer with 2 years of experience building web
+applications and REST APIs. Comfortable across the stack and in cloud
+environments. Open to software, backend, full-stack, cloud, DevOps, and
+security-adjacent engineering roles.
+
+SKILLS
+Languages: Python, Java, JavaScript, TypeScript, SQL
+Frontend: React, Next.js, HTML, CSS
+Backend: Node.js, Express, Django, Flask, REST API
+Databases: MongoDB, MySQL, PostgreSQL
+DevOps/Cloud: Docker, Kubernetes, AWS, Linux, CI/CD, Git, GitHub
+Security basics: Networking, Cybersecurity fundamentals
+AI/ML: Machine Learning, Pandas, NumPy
+
+EXPERIENCE
+Software Engineer, Example Corp (2023–present)
+- Built and maintained REST APIs in Python (Django) and Node.js.
+- Containerized services with Docker and deployed on AWS.
+- Set up CI/CD pipelines with GitHub Actions.
+
+PROJECTS
+- Job board aggregator: Python + PostgreSQL + React.
+- Personal portfolio: Next.js on AWS.
+
+EDUCATION
+B.Tech in Computer Science.
+
+NOTE: This is a sample resume for demos. Copy it to resume/resume.txt
+(or add resume/resume.pdf) and replace it with your real resume.

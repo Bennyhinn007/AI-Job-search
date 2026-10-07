@@ -1,0 +1,28 @@
+# Secrets / local config
+.env
+
+# Database
+database/*.db
+
+# Runtime logs
+logs/
+
+# Resume files (personal data)
+resume/*.pdf
+resume/*.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
