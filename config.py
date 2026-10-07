@@ -91,7 +91,7 @@ class Config:
 
     # LLM (Google Gemini)
     google_api_key: str = ""
-    gemini_model: str = "gemini-1.5-flash"
+    gemini_model: str = "gemini-flash-latest"
 
     # Tuning
     max_job_age_days: int = 1
@@ -148,7 +148,7 @@ def load_config() -> Config:
         openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
         openai_model=os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini",
         google_api_key=os.getenv("GOOGLE_API_KEY", "").strip(),
-        gemini_model=os.getenv("GEMINI_MODEL", "gemini-1.5-flash").strip() or "gemini-1.5-flash",
+        gemini_model=os.getenv("GEMINI_MODEL", "gemini-flash-latest").strip() or "gemini-flash-latest",
         max_job_age_days=_get_int("MAX_JOB_AGE_DAYS", 1),
         min_match_score=_get_int("MIN_MATCH_SCORE", 60),
         max_email_jobs=_get_int("MAX_EMAIL_JOBS", 10),

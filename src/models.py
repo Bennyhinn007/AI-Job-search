@@ -87,10 +87,12 @@ class Job:
     recommendation: str = ""
     rank_score: float = 0.0
     matched_resume: str = ""  # which resume profile scored best for this job
+    _best_profile: object = None  # cached ResumeProfile for optional LLM enrichment
 
     def to_dict(self) -> dict:
         d = asdict(self)
         d["posted_at"] = self.posted_at.isoformat() if self.posted_at else None
+        d.pop("_best_profile", None)  # internal cache, not serializable
         return d
 
 

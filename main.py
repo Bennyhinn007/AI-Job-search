@@ -22,7 +22,7 @@ from config import describe, load_config
 from src import database, filters, ranking
 from src.email_sender import send_digest
 from src.job_fetcher import fetch_all
-from src.matcher import match_job_multi
+from src.matcher import enrich_with_llm, match_job_multi
 from src.resume_parser import ResumeNotFoundError, load_resume_profiles
 
 
@@ -103,14 +103,14 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  resume profiles loaded: {len(profiles)} "
           f"({', '.join(p.name for p in profiles)})")
 
-    # 5. Match each job against the best-fitting resume profile
+    # 5. Fast KEYWORD match of every job against the best-fitting resume profile
     for job in jobs:
         try:
             match_job_multi(job, profiles, config)
         except Exception as exc:  # never let one job kill the run
             logging.getLogger("main").warning("Match failed for a job: %s", exc)
 
-    # 6. Rank
+    # 6. Rank by keyword score
     jobs = ranking.rank(jobs, config)
 
     # 7. Apply score threshold + limit
@@ -123,10 +123,20 @@ def main(argv: list[str] | None = None) -> int:
     digest_jobs = qualified[:limit]
     print(f"  qualifying (score >= {min_score}): {len(qualified)}; sending top {len(digest_jobs)}")
 
-    # 8. Send digest
+    # 8. LLM enrichment — ONLY the top jobs that will be emailed. Keeps the run
+    #    fast and resilient: each call has a short timeout and falls back to the
+    #    keyword result on any failure. Skipped entirely when no LLM key is set.
+    if config.has_llm:
+        print(f"  enriching top {len(digest_jobs)} with {config.llm_provider}...")
+        for job in digest_jobs:
+            enrich_with_llm(job, config)
+        # Re-rank the shortlist since LLM scores may differ from keyword scores.
+        digest_jobs = ranking.rank(digest_jobs, config)
+
+    # 9. Send digest
     sent_ok = send_digest(digest_jobs, config, dry_run=args.dry_run)
 
-    # 9. Persist — only mark seen after a successful send (or in dry-run skip persist)
+    # 10. Persist — only mark seen after a successful send (or in dry-run skip persist)
     if sent_ok and not args.dry_run:
         for job in digest_jobs:
             database.mark_seen(job)

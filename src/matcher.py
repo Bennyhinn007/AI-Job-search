@@ -126,12 +126,16 @@ def _gemini_match(job: Job, resume_text: str, config: Config) -> dict | None:
         log.info("google-generativeai SDK not installed; skipping Gemini.")
         return None
     try:
-        genai.configure(api_key=config.google_api_key)
+        # Use the REST transport (more firewall-friendly than the default gRPC).
+        genai.configure(api_key=config.google_api_key, transport="rest")
         model = genai.GenerativeModel(
             config.gemini_model,
             generation_config={"temperature": 0, "response_mime_type": "application/json"},
         )
-        resp = model.generate_content(_build_prompt(job, resume_text))
+        resp = model.generate_content(
+            _build_prompt(job, resume_text),
+            request_options={"timeout": 20},
+        )
         return _parse_llm_json(_strip_code_fence(resp.text), config)
     except Exception as exc:
         log.warning("Gemini matching failed (%s); trying next option.", exc)
@@ -190,23 +194,8 @@ def match_job(job: Job, resume_text: str, resume_skills: list[str], config: Conf
     return _apply_result(job, result)
 
 
-def match_job_multi(job: Job, profiles: list[ResumeProfile], config: Config) -> Job:
-    """Match a job against EVERY resume profile and keep the best-scoring one.
-
-    For keyword matching we score all profiles (cheap) and pick the best.
-    For LLM matching, to limit API calls, we first find the best profile by the
-    fast keyword score, then run the LLM only on that profile (with keyword
-    fallback). The winning profile's name is recorded on the job.
-    Always succeeds.
-    """
-    if not profiles:
-        # No profiles: nothing to match against.
-        return _apply_result(job, {
-            "match_score": 0.0, "matching_skills": [], "missing_skills": [],
-            "reason": "No resume profiles available.", "recommendation": "LOW PRIORITY",
-        })
-
-    # 1. Keyword-score every profile to find the best fit.
+def _best_profile(job: Job, profiles: list[ResumeProfile], config: Config):
+    """Keyword-score every profile and return (best_profile, best_keyword_result)."""
     best_profile = None
     best_kw = None
     best_score = -1.0
@@ -216,19 +205,57 @@ def match_job_multi(job: Job, profiles: list[ResumeProfile], config: Config) -> 
             best_score = kw["match_score"]
             best_profile = profile
             best_kw = kw
+    return best_profile, best_kw
 
-    # 2. Optionally upgrade the winning profile with an LLM pass.
-    result = best_kw
-    if config.has_llm and best_profile is not None:
-        llm = _llm_match(job, best_profile.text, config)
-        if llm is not None:
-            result = llm
 
-    _apply_result(job, result)
-    # Record which resume won and surface it in the reason.
+def _prefix_reason(job: Job, profile_name: str) -> None:
+    prefix = f"[Best fit: {profile_name}] "
+    if not job.reason.startswith("[Best fit:"):
+        job.reason = prefix + job.reason
+
+
+def match_job_multi(job: Job, profiles: list[ResumeProfile], config: Config) -> Job:
+    """Fast KEYWORD match of a job against every resume profile; best fit wins.
+
+    This path does NO LLM call — it is instant and used to score and rank ALL
+    jobs. LLM enrichment happens separately on just the top jobs via
+    enrich_with_llm(). The winning profile is stored on the job and remembered
+    (job._best_profile) so enrichment can reuse it without re-scoring.
+    Always succeeds.
+    """
+    if not profiles:
+        return _apply_result(job, {
+            "match_score": 0.0, "matching_skills": [], "missing_skills": [],
+            "reason": "No resume profiles available.", "recommendation": "LOW PRIORITY",
+        })
+
+    best_profile, best_kw = _best_profile(job, profiles, config)
+    _apply_result(job, best_kw)
     if best_profile is not None:
         job.matched_resume = best_profile.name
-        prefix = f"[Best fit: {best_profile.name}] "
-        if not job.reason.startswith("[Best fit:"):
-            job.reason = prefix + job.reason
+        job._best_profile = best_profile  # cached for enrichment
+        _prefix_reason(job, best_profile.name)
+    return job
+
+
+def enrich_with_llm(job: Job, config: Config) -> Job:
+    """Upgrade an already keyword-matched job with an LLM pass (top jobs only).
+
+    Uses the job's best-fit resume (cached by match_job_multi). On any LLM
+    failure/timeout the existing keyword result is kept unchanged.
+    Always succeeds; never raises.
+    """
+    if not config.has_llm:
+        return job
+    profile = getattr(job, "_best_profile", None)
+    if profile is None:
+        return job
+    try:
+        llm = _llm_match(job, profile.text, config)
+    except Exception as exc:  # safety net
+        log.warning("LLM enrichment errored (%s); keeping keyword result.", exc)
+        llm = None
+    if llm is not None:
+        _apply_result(job, llm)
+        _prefix_reason(job, profile.name)
     return job
