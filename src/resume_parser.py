@@ -69,10 +69,38 @@ def _label_from_filename(filename: str) -> str:
     return base.replace("-", " ").replace("_", " ").strip().title() or filename
 
 
+import re
+from functools import lru_cache
+
+
+@lru_cache(maxsize=512)
+def _skill_pattern(skill: str) -> "re.Pattern[str]":
+    """Compile a word-boundary-aware, case-insensitive pattern for a skill.
+
+    Plain substring matching over-matches badly: 'C' matches the 'c' inside
+    'Docker', 'AI' matches 'maintain', 'Go' matches 'Google'. We instead require
+    the skill to appear as a whole token. Special characters in skill names
+    (C++, C#, Next.js, CI/CD, Node.js) are escaped, and we use lookarounds
+    rather than \\b so symbol-containing skills still anchor correctly.
+    """
+    esc = re.escape(skill)
+    # A token boundary = start/space/punctuation on each side, but allow the
+    # skill's own trailing symbols (e.g. the '+' in C++, '#' in C#).
+    return re.compile(rf"(?<![A-Za-z0-9]){esc}(?![A-Za-z0-9])", re.IGNORECASE)
+
+
 def extract_skills(text: str, vocabulary: list[str]) -> list[str]:
-    """Return the vocabulary skills present in the text (case-insensitive)."""
-    low = (text or "").lower()
-    return [skill for skill in vocabulary if skill.lower() in low]
+    """Return the vocabulary skills present in the text as whole tokens.
+
+    Case-insensitive, word-boundary aware so short skills like 'C', 'Go', 'AI'
+    don't match substrings of unrelated words.
+    """
+    blob = text or ""
+    found = []
+    for skill in vocabulary:
+        if _skill_pattern(skill).search(blob):
+            found.append(skill)
+    return found
 
 
 def load_resume_text(pdf_path: str = PDF_PATH, txt_path: str = TXT_PATH) -> str:

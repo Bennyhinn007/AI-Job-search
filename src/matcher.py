@@ -45,10 +45,20 @@ def keyword_match(job: Job, resume_skills: list[str], config: Config) -> dict:
 
     matching = [s for s in jd_skills if s.lower() in resume_set]
     missing = [s for s in jd_skills if s.lower() not in resume_set]
-    score = round(len(matching) / len(jd_skills) * 100, 1)
+
+    overlap = len(matching) / len(jd_skills)  # 0..1 coverage of JD skills
+
+    # Confidence: a JD listing only 1-2 detected skills is weak evidence, so a
+    # "100%" there should not outrank a richer JD. Ramp confidence up to a floor
+    # of CONFIDENCE_MIN until the JD lists CONFIDENCE_FULL_AT skills.
+    CONFIDENCE_FULL_AT = 6
+    CONFIDENCE_MIN = 0.5
+    confidence = min(1.0, CONFIDENCE_MIN + (1 - CONFIDENCE_MIN) * (len(jd_skills) / CONFIDENCE_FULL_AT))
+    score = round(overlap * confidence * 100, 1)
 
     if matching:
-        reason = "Your resume covers " + ", ".join(matching[:6])
+        reason = f"Your resume covers {len(matching)} of {len(jd_skills)} skills in this role: "
+        reason += ", ".join(matching[:6])
         if len(matching) > 6:
             reason += f", and {len(matching) - 6} more"
         reason += "."

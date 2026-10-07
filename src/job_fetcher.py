@@ -66,6 +66,11 @@ class AdzunaSource(JobSource):
         for raw in data.get("results", []):
             try:
                 loc = (raw.get("location") or {}).get("display_name", "")
+                category = (raw.get("category") or {}).get("label", "")
+                # Adzuna truncates the description server-side; fold in the
+                # title and category so skill detection has more signal.
+                desc = raw.get("description") or ""
+                enriched = f"{raw.get('title', '')}. {category}. {desc}"
                 job = build_job(
                     source=self.name,
                     source_id=raw.get("id"),
@@ -73,7 +78,7 @@ class AdzunaSource(JobSource):
                     company=(raw.get("company") or {}).get("display_name"),
                     location=loc,
                     url=raw.get("redirect_url"),
-                    description=raw.get("description"),
+                    description=enriched,
                     posted_at=raw.get("created"),
                 )
                 if job:
