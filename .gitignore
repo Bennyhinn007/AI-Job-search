@@ -26,3 +26,6 @@ env/
 .DS_Store
 .idea/
 .vscode/
+
+# Local agent notes (never commit)
+.agents/

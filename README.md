@@ -10,6 +10,40 @@ stop manually scrolling job boards every day.
 > This is **not** an auto-apply bot. It discovers, ranks, and notifies. **You**
 > decide where to apply.
 
+## How it works
+
+```mermaid
+flowchart TD
+    A["Job Sources (Adzuna, Remotive)"] --> B["Normalize"]
+    B --> C["Filter (role + posting age)"]
+    C --> D["Dedup (SQLite)"]
+    D --> E["Keyword match vs 5 resumes, best fit wins"]
+    E --> F["Rank (match + recency + location)"]
+    F --> G["Top N jobs"]
+    G --> H{"Gemini key set?"}
+    H -- "yes" --> I["Optional Gemini enrichment"]
+    H -- "no" --> J["Keep keyword result"]
+    I -- "error or 20s timeout" --> J
+    I --> K["Email digest"]
+    J --> K
+    K --> L["Mark jobs seen"]
+```
+
+- **Phase 1 is keyword matching for every job.** It runs offline and takes
+  milliseconds, so ranking never depends on a network call.
+- **Phase 2 is optional.** If a Gemini key is set, only the top few jobs that
+  make the email are sent to the LLM for a richer analysis.
+- **Every LLM call has a 20-second timeout.** On a timeout or any error, the job
+  keeps its keyword result, so the daily run never hangs.
+- **Jobs are marked seen only after the email is sent.** A failed send means the
+  same jobs are retried on the next run.
+
+## Example digest
+
+<!-- TODO (author): add a screenshot of a real digest email at docs/digest-screenshot.png.
+     Blur or crop out all email addresses before committing it. -->
+![Example digest email](docs/digest-screenshot.png)
+
 ---
 
 ## 1. What the project does
@@ -335,3 +369,7 @@ Confirm it was added with `crontab -l`.
 - Job-description HTML is stripped and escaped before going into emails; job
   content is never executed.
 - The tool does not auto-apply and does not bypass any site's access controls.
+
+## License
+
+Released under the [MIT License](LICENSE).
